@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2f6b4f">
+<title>Liste de courses</title>
+<style>
+  :root {
+    --bg: #f5f4ef;
+    --card: #ffffff;
+    --text: #1f2522;
+    --muted: #66706a;
+    --line: #e2e1da;
+    --accent: #2f6b4f;
+    --accent-soft: #e3efe8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141815;
+      --card: #1e2420;
+      --text: #eef1ee;
+      --muted: #9aa59e;
+      --line: #313a34;
+      --accent: #6cc196;
+      --accent-soft: #24352b;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 0; }
+  .sub { color: var(--muted); margin: 2px 0 16px; font-size: .95rem; }
+
+  .progress {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--bg);
+    padding: 10px 0;
+  }
+  .count { font-weight: 600; font-size: .95rem; margin-bottom: 6px; }
+  .bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+
+  h2 {
+    font-size: .8rem; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--muted); margin: 20px 0 8px;
+  }
+  ul { list-style: none; margin: 0; padding: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  li + li { border-top: 1px solid var(--line); }
+  label { display: flex; align-items: center; gap: 14px; min-height: 56px; padding: 10px 14px; cursor: pointer; }
+  input[type=checkbox] { width: 26px; height: 26px; flex: none; margin: 0; accent-color: var(--accent); }
+  .name { flex: 1; }
+  .qty { display: block; color: var(--muted); font-size: .88rem; }
+  li.done { background: var(--accent-soft); }
+  li.done .name { color: var(--muted); text-decoration: line-through; }
+
+  details { margin-top: 24px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  summary { font-weight: 600; cursor: pointer; }
+  ol { padding-left: 22px; margin: 12px 0 0; }
+  ol li { margin-bottom: 8px; border: 0; }
+
+  button {
+    display: block; width: 100%; margin-top: 16px; min-height: 48px;
+    font: inherit; color: var(--text);
+    background: transparent; border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Liste de courses</h1>
+  <p class="sub">Saumon au four, lentilles et légumes · 2 personnes</p>
+
+  <div class="progress">
+    <div class="count" id="count" aria-live="polite"></div>
+    <div class="bar"><span id="fill"></span></div>
+  </div>
+
+  <div id="list"></div>
+
+  <details>
+    <summary>Voir la recette (30 min)</summary>
+    <ol>
+      <li>Préchauffe le four à 200 °C.</li>
+      <li>Fais cuire les lentilles 20 à 25 min dans de l'eau non salée. Avec des lentilles en boîte, rince-les et passe à l'étape 3.</li>
+      <li>Coupe les carottes et la courgette en dés, émince l'oignon et l'ail.</li>
+      <li>Fais revenir l'oignon et les carottes 5 min à la poêle avec 1 c. à soupe d'huile d'olive. Ajoute la courgette et l'ail, puis laisse cuire 8 à 10 min.</li>
+      <li>Pose le saumon sur une plaque, ajoute un peu de jus de citron, du sel et du poivre, puis enfourne 12 à 15 min.</li>
+      <li>Mélange les lentilles égouttées avec les légumes, la moutarde, le reste d'huile d'olive et un filet de citron.</li>
+      <li>Sers le saumon sur les lentilles et ajoute les herbes.</li>
+    </ol>
+  </details>
+
+  <button id="reset" type="button">Tout décocher</button>
+</main>
+
+<script>
+  var RAYONS = [
+    { titre: "Fruits et légumes", articles: [
+      ["carottes", "Carottes", "2"],
+      ["courgette", "Courgette", "1"],
+      ["oignon", "Oignon", "1"],
+      ["ail", "Ail", "1 gousse"],
+      ["citron", "Citron", "1"],
+      ["herbes", "Persil ou aneth", "1 petit bouquet"]
+    ]},
+    { titre: "Poissonnerie", articles: [
+      ["saumon", "Pavés de saumon", "2"]
+    ]},
+    { titre: "Épicerie", articles: [
+      ["lentilles", "Lentilles vertes", "200 g, ou 1 boîte de 400 g"],
+      ["huile", "Huile d'olive", "2 c. à soupe"],
+      ["moutarde", "Moutarde", "1 c. à café"],
+      ["sel", "Sel", "selon ton goût"],
+      ["poivre", "Poivre", "selon ton goût"]
+    ]}
+  ];
+
+  var CLE = "listeCourses_v1";
+  var coches = {};
+  try { coches = JSON.parse(localStorage.getItem(CLE)) || {}; } catch (e) {}
+
+  function sauver() {
+    try { localStorage.setItem(CLE, JSON.stringify(coches)); } catch (e) {}
+  }
+
+  function majProgression() {
+    var total = document.querySelectorAll("#list input").length;
+    var faits = document.querySelectorAll("#list input:checked").length;
+    document.getElementById("count").textContent =
+      faits === total ? "Tout est dans le panier !" : faits + " / " + total + " articles";
+    document.getElementById("fill").style.width = (faits / total * 100) + "%";
+  }
+
+  var liste = document.getElementById("list");
+  RAYONS.forEach(function (rayon) {
+    var h = document.createElement("h2");
+    h.textContent = rayon.titre;
+    liste.appendChild(h);
+
+    var ul = document.createElement("ul");
+    rayon.articles.forEach(function (a) {
+      var li = document.createElement("li");
+      var label = document.createElement("label");
+      var box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = !!coches[a[0]];
+      li.classList.toggle("done", box.checked);
+      box.addEventListener("change", function () {
+        coches[a[0]] = box.checked;
+        li.classList.toggle("done", box.checked);
+        sauver();
+        majProgression();
+      });
+
+      var name = document.createElement("span");
+      name.className = "name";
+      name.textContent = a[1];
+      var qty = document.createElement("span");
+      qty.className = "qty";
+      qty.textContent = a[2];
+      name.appendChild(qty);
+
+      label.appendChild(box);
+      label.appendChild(name);
+      li.appendChild(label);
+      ul.appendChild(li);
+    });
+    liste.appendChild(ul);
+  });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    coches = {};
+    sauver();
+    document.querySelectorAll("#list input").forEach(function (box) {
+      box.checked = false;
+      box.closest("li").classList.remove("done");
+    });
+    majProgression();
+  });
+
+  majProgression();
+</script>
+</body>
+</html>
